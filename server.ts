@@ -158,10 +158,10 @@ app.get("/users",async(req:Request,res:Response)=> {
 app.route("/logs")
 .get( checkToken,verifyToken,async (req:CustomRequest,res:Response)=> {
     // filter userlogs by month
-    const month:number = req.body.month
-    if (!month) return res.status(401).send({msg:"no month given"})
+  //  const month:number = req.body.month
+  //  if (!month) return res.status(401).send({msg:"no month given"})
     const filteredLogs = (await getLogs()).filter((log)=>
-     log.name === String(req.data.name) && new Date(log.timestamp).getMonth() === month-1)
+     log.name === String(req.data.name))
    res.send({msg:filteredLogs})
 })
 .post(checkToken,verifyToken, async(req:CustomRequest,res:Response)=> {
@@ -201,7 +201,7 @@ app.route("/logs")
 
 
 //total hours
-app.get("/total",checkToken,verifyToken,calculate ,(req:CustomRequest,res:Response)=> {
+app.post("/total",checkToken,verifyToken,calculate ,(req:CustomRequest,res:Response)=> {
    console.log("total success!")
 })
 
@@ -210,10 +210,10 @@ app.get("/total",checkToken,verifyToken,calculate ,(req:CustomRequest,res:Respon
 async function calculate(req:CustomRequest, res:Response, next:NextFunction) {
     const name:string = String(req.data.name) // req.data from header authorization
     const month:number = Number(req.body.month)
-    const year:number = Number(req.body.year)
+   // const year:number = Number(req.body.year) 
 
     const individalLogs:Log[] = (await getLogs()).filter((log)=> log.name === name
-    && new Date(log.timestamp).getMonth() === month-1
+    && new Date(log.timestamp).getMonth() === month
     )
     if (individalLogs.length === 0) return res.status(401).send({msg:"user not found!"})
     const userlogs = individalLogs.map((item)=> item.timestamp)
