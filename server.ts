@@ -3,12 +3,29 @@ import cors from 'cors'
 import jsonwebtoken from 'jsonwebtoken';
 import bcrypt from 'bcrypt'
 import dotenv from 'dotenv'
-import { MongoClient} from 'mongodb';
+import { GridFSBucket, MongoClient} from 'mongodb';
+import multer from 'multer';
+import mongoose from 'mongoose';
+import { GridFsStorage } from 'multer-gridfs-storage';
+
 
 dotenv.config()
 
 const uri = 'mongodb+srv://pngu:AB0dNaJUXo9bdS27@tedavi100.2dpkus9.mongodb.net/?retryWrites=true&w=majority'
 const client = new MongoClient(uri)
+const dbStorage = client.connect().then(cl => cl.db('Timemanagement'))
+
+const storage = new GridFsStorage({client, db:dbStorage,  file: (req, file) => {
+    if (file.mimetype === 'image/jpeg') {
+      return {
+       bucketName:'profilepics'
+      };
+    } else {
+      return null;
+    }
+  }})
+
+const upload = multer({storage})
 
 const PORT = process.env.PORT || 3000;
 const app:Express = express()
@@ -18,7 +35,8 @@ app.use(express.urlencoded({extended:true}))
 
 interface User  {
     name:string,
-    password:string
+    password:string,
+    imgfile:string
 }
 
 interface Log {
@@ -125,7 +143,8 @@ async function registerUser(req:CustomRequest,res:Response,next:NextFunction) {
         const hashpassword = await bcrypt.hash(req.body.password,10)
         let user:User = {
             name:req.body.name.toString(),
-            password:hashpassword
+            password:hashpassword,
+            imgfile:'',
             }   
         const jwt =  jsonwebtoken.sign({name:user.name}, SECRET_KEY, {expiresIn:'1h'})
         // Save User + Key in Database
@@ -172,7 +191,6 @@ app.route("/logs")
     
     let log:Log
     let userLogs:Log[] = (await getLogs()).filter((log)=>log.name === String(req.data.name))
-    console.log(userLogs)
     
     if (userLogs.length === 0) {
         log = {
@@ -232,6 +250,41 @@ async function calculate(req:CustomRequest, res:Response, next:NextFunction) {
     next()
 }
 
+
+let conn = mongoose.createConnection(uri)
+let bucket:GridFSBucket
+
+conn.once("open", async ()=> {
+    bucket = new GridFSBucket(client.db('Timemanagement'), {bucketName:'profilepics'})
+})
+
+
+app.post('/uploadimage',checkToken, verifyToken, upload.single('photo'), (req:CustomRequest,res:Response)=> {
+    console.log(req.data.name)
+    const database = client.db('Timemanagement')
+    const collection = database.collection<User>("user")
+    collection.updateOne({"name":req.data.name}, {$set: {"imgfile":req.file?.filename}})
+    res.send({msg:req.file})
+})
+
+
+
+app.get('/images/:name', async (req:Request,res:Response)=> {
+    const users = (await getUsers()).filter((user)=> user.name === String(req.params.name))
+    const imgName = users[0].imgfile
+    console.log(users)
+
+    let stream;
+    try {
+        stream =  bucket.openDownloadStreamByName(imgName) 
+         stream.pipe(res)
+    }
+    
+    catch(err) {
+        console.log("fehler: "+ err)
+       return res.status(401).send({msg:err})
+    }
+})
 
 
 app.listen(PORT, ()=> {
