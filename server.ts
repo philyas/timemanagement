@@ -11,7 +11,7 @@ import { GridFsStorage } from 'multer-gridfs-storage';
 
 dotenv.config()
 
-const uri = 'mongodb+srv://pngu:AB0dNaJUXo9bdS27@tedavi100.2dpkus9.mongodb.net/?retryWrites=true&w=majority'
+const uri = process.env.URI
 const client = new MongoClient(uri)
 const dbStorage = client.connect().then(cl => cl.db('Timemanagement'))
 
